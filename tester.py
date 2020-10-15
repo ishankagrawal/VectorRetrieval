@@ -6,23 +6,26 @@ from nltk.stem import PorterStemmer
 from nltk.tokenize import RegexpTokenizer
 import nltk.data
 import re
-import pickle
+#import json
 from bs4 import BeautifulSoup,NavigableString
-import tracemalloc
-#tracemalloc.start()
+import pickle
+
+
+import math
+
+
+def tdfidf(freq,n,word,vocab):
+	return (math.log2(1+freq)*math.log2(1 + (n/len(vocab[word][0]))))**2
 
 
 
 
 
-
-
-stemmer = PorterStemmer()
 english_stops = set(stopwords.words('english'))
 
 abspath = sys.argv[1]
 dlist = os.listdir(abspath)
-dociter = 1
+dociter = 0
 doclist = {}
 
 
@@ -33,35 +36,50 @@ filelim = 0
 for filename in dlist:
 	filelim+=1
 	
-	f = open(abspath + "/" + filename,'r')
-	soup = BeautifulSoup(f, 'html.parser')
-	f.close()
+	with open(abspath + "/" + filename,'r') as f:
+		soup = BeautifulSoup(f, 'html.parser')
+	
 	
 	for tag in soup.find_all('doc'):
-		doclist[dociter] = tag.docno.string
+		
 		dociter+=1
+		
 		t = tag.find('text')
+		u = tag.find('docno')
+		doclist[dociter] = [u.text]
 
 		if(tag!=None):
 			numtags+=1
-		tokenizer = RegexpTokenizer(r"[\w']+")
+		tokenizer = RegexpTokenizer("[\w']+")
 		l = tokenizer.tokenize(t.text)
 		
 
 		for w in l:
 			word = w.lower()
+			if(word[0]==" "):
+				print(word)
+			if(word[-1] == "'"):
+
+				if(len(word)>1 and word[-2]=="'"):
+					word = word[:-2]
+				else:
+					word = word[:-1]
 			if(word not in english_stops):
 				if(word in vocab):
-					if(dociter in vocab[word]):
+					if(dociter in vocab[word][0]):
+						
 						vocab[word][0][dociter]+=1
 					else:
 						vocab[word][0][dociter]=1
-					
+						
+											
 				else:
 					
 
 					vocab[word] = [{dociter:1}]
-		for noun in tag.find_all(['person','organization','location']):
+
+		
+		'''for noun in tag.find_all(['person','organization','location']):
 			if(noun.name=='location'):
 				curnoun = noun.text.lower()
 				if(curnoun in vocab and len(vocab[curnoun])==1):
@@ -80,12 +98,14 @@ for filename in dlist:
 					vocab[curnoun].append(3)
 				else:
 					vocab[curnoun] = [{dociter:1},3]
+		'''
 
 					
 		#taglist = t.contents
 		
-		p = 0
+		
 		""" MERGE QUAERIES TBDL
+		p=0
 		while(p<len(taglist)):
 			if(not isinstance(taglist[p],NavigableString)):
 				curword = ""
@@ -128,13 +148,29 @@ for filename in dlist:
 		"""
 
 	
-	#current, peak = tracemalloc.get_traced_memory()
-	#print(f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB")
-	print(dociter)
-#tracemalloc.stop()
+	print(filelim)
+	if(filelim>2):
+		break
+total = len(doclist)
+for word in vocab:
+	for doc in vocab[word][0]:
+		if(len(doclist[doc])>1):
+			doclist[doc][1]+=tdfidf(vocab[word][0][doc],total,word,vocab)
+		else:
+			doclist[doc].append(tdfidf(vocab[word][0][doc],total,word,vocab))
+
+
+
+
+
+		
+
+	
+
 
 
 lastbyte = 0
+lasttell = 0
 
 dictfile =  open(sys.argv[2] + '.dict', mode='w')
 indexfile =  open(sys.argv[2] + '.idx', mode='wb')
@@ -143,17 +179,25 @@ for word in vocab:
 	dictfile.write(bytes((word + " " + str(len(vocab[word][0]))).encode()))
 	indexfile.write(bytes(str(vocab[word]).encode()))
 
-	dictfile.write(bytes((" " + str(indexfile.tell()-lastbyte) + "\n").encode()))
+	dictfile.write(bytes((" " + str(indexfile.tell()-lastbyte) + "").encode()))
 	lastbyte = indexfile.tell()
 '''
 
 	
 for word in vocab:
-	dictfile.write((word + " " + str(len(vocab[word][0])) + " "))
+	dictfile.write(word + " " + str(len(vocab[word][0])) + " ")
 	
+	#indexfile.write(json.dumps(vocab[word]).encode())
 	pickle.dump(vocab[word],indexfile)
-	dictfile.write(str(lastbyte) + "\n")
-	lastbyte = indexfile.tell() - lastbyte
+	dictfile.write(str(indexfile.tell() - lasttell) + "\n")
+	lasttell = indexfile.tell()
+	
+	
+	
+
+dictfile.write(str(indexfile.tell()))
+#indexfile.write(json.dumps(doclist).encode())
+pickle.dump(doclist,indexfile)
 dictfile.close()
 indexfile.close()
 
