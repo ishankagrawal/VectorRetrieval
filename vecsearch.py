@@ -1,12 +1,13 @@
 import sys,getopt
 import Trie
-#import json
-import pickle
+import json
+from nltk.stem import PorterStemmer
 from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 import math
+ps = PorterStemmer()
+tokenizer = RegexpTokenizer("\w+")
 english_stops = set(stopwords.words('english'))
-tokenizer = RegexpTokenizer("[\w']+")
 queryfile = ''
 cutoff = 10
 resultfile = ''
@@ -14,13 +15,13 @@ indexfile = ''
 dictfile = ''
 offsetlist = {}
 
-print(sys.argv[1:])
+
 opts, args = getopt.getopt(sys.argv[1:],"",["query=","cutoff=","output=","index=","dict="])
-print(opts)
+
 for opt,arg in opts:
 	if(opt=="--query"):
 		queryfile = arg
-		print("lol")
+		
 	elif(opt=="--cutoff"):
 		cutoff = int(arg)
 	elif(opt=="--output"):
@@ -56,52 +57,121 @@ def generateTrie(dictfile):
                 root.insert(s[0],curbyte,int(s[1]))
 
                 curbyte += int(s[2])
-                #offsetlist[lastbyte] = int(s[2])
-                #lastbyte = curbyte
+                offsetlist[lastbyte] = int(s[2])
+                lastbyte = curbyte
 
             else:
+                
                 f.seek(int(s[0]),0)
-        res = pickle.load(f)
+        res = json.loads(f.read())
 
    
     
     
     return (root,res)
 def getdocs(query,doclist,root):
+    n = len(doclist)
+
     res = {}
     for dociter in doclist:
         res[dociter] = 0
     
-
-    l = tokenizer.tokenize(query)
     qvec = {}
-    n = len(doclist)
+    qnorm = 0
+    t = query.split()
+
+    temp = []
+    for word in t:
+        if(word[-1] == '*'):
+            oflist = root.searchprefix(word.lower())
+            qnorm+=1
+            
+            for offset in oflist:
+                f.seek(offset,0)
+                posting = json.loads(f.read(offsetlist[offset]))
+                for dociter in posting[0]:
+                    res[dociter]+=tdfidf(posting[0][dociter],n,len(posting[0]))
+            #Apply sqrt here if not work
+
+        else:
+            temp.append(word)
+
+
+ 
+
+    l = tokenizer.tokenize(' '.join(temp))
+    print(l)
     for w in l:
-        word = w.lower()
+
+        word = ps.stem(w.lower())
         if(word not in english_stops):
             if(word in qvec):
                 qvec[word]+=1
             else:
                 qvec[word]=1
     for word in qvec:
+        qnorm += qvec[word]**2
         trieval = root.search(word)
         if(trieval):
             offset = trieval[1]
-            print(offset)
+            
+            
             f.seek(offset,0)
 
             
-            posting = pickle.load(f)
+            posting = json.loads(f.read(offsetlist[offset]))
             
             for dociter in posting[0]:
-                res[dociter]+= math.log(1+qvec[word])*tdfidf(posting[0][dociter],n,len(posting[0]))
+                res[dociter]+= math.log2(1+qvec[word])*tdfidf(posting[0][dociter],n,len(posting[0]))
+
+    '''for dociter in doclist:
+            if(len(doclist[dociter])==2):
+                res[dociter] = res[dociter]/math.sqrt((qnorm*doclist[dociter][1]))
+   '''
     return res
 
+print("Importing Dictionary: Please wait...")
 
 root,doclist = generateTrie(dictfile)
-#print(getdocs("officers",doclist,root))
 
-print(getdocs("news",doclist,root))
+print("Generating result file: Please wait...")
+
+
+'''with open(dictfile,"r") as d:
+    for line in d:
+        s = line.split()
+        print(s[0])
+        
+        f.seek(curbyte,0)
+        p = json.loads(f.read(offsetlist[curbyte]))
+        curbyte+=int(s[2])'''
+        
+
+
+qlist = parseQ(queryfile)
+qiter = 51
+
+with open(resultfile,"w") as rf:
+	for q in qlist:
+		ab = 1
+		docs = getdocs(q,doclist,root)
+		topk = sorted(docs,key = lambda item: -docs[item])[:cutoff]
+		for dociter in topk:
+
+			rf.write(str(qiter) + " Q0" + " " + doclist[dociter][0] + " " + str(ab) + " " + str(docs[dociter]) + " STANDARD" + '\n')
+			ab+=1
+		qiter+=1
+
+f.close()
+
+
+
+
+
+    
+
+
+
 
 
 
