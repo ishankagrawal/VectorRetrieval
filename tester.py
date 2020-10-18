@@ -16,7 +16,9 @@ import math
 
 tokenizer = RegexpTokenizer("[\w']+")
 def tdfidf(freq,n,word,vocab):
-	return (math.log2(1+freq)*math.log2(1 + (n/len(vocab[word][0]))))**2
+	return ((1+math.log2(freq))*math.log2(1 + (n/len(vocab[word][0]))))**2
+def dictencode(s):
+	return ''.join(s.split())
 
 
 
@@ -32,7 +34,7 @@ doclist = {}
 
 vocab = {}
 
-numtags = 0
+
 filelim = 0
 print("Generating index: It may take a few minutes...")
 for filename in dlist:
@@ -41,26 +43,26 @@ for filename in dlist:
 	with open(abspath + "/" + filename,'r') as f:
 		soup = BeautifulSoup(f, 'html.parser')
 	
-	
-	for tag in soup.find_all('doc'):
+	docs = soup.find_all('doc')
+	for tag in docs:
 		
 		dociter+=1
 		u = tag.find('docno')
-		doclist[dociter] = [u.text.split()[0]]
+		doclist[dociter] = u.text.split()
 		for t in tag.find_all('text'):
 		
 		
 
-			if(tag!=None):
-				numtags+=1
+			
+				
 			
 			l = tokenizer.tokenize(t.text)
 			
 
 			for w in l:
 				word = ps.stem(w.lower())
-				if(word[0]==" "):
-					print(word)
+
+
 				if(word[-1] == "'"):
 
 					if(len(word)>1 and word[-2]=="'"):
@@ -153,6 +155,8 @@ for filename in dlist:
 		
 	print(filelim)
 
+
+
 total = len(doclist)
 for word in vocab:
 	for doc in vocab[word][0]:
@@ -191,7 +195,7 @@ for word in vocab:
 
 	dictfile.write(word + " " + str(len(vocab[word][0])) + " ")
 	
-	indexfile.write(json.dumps(vocab[word]).encode())
+	indexfile.write(dictencode(json.dumps(vocab[word])).encode())
 	#pickle.dump(vocab[word],indexfile)
 	dictfile.write(str(indexfile.tell() - lasttell) + "\n")
 	lasttell = indexfile.tell()
@@ -200,7 +204,7 @@ for word in vocab:
 	
 
 dictfile.write(str(indexfile.tell()))
-indexfile.write(json.dumps(doclist).encode())
+indexfile.write(dictencode(json.dumps(doclist)).encode())
 #pickle.dump(doclist,indexfile)
 dictfile.close()
 indexfile.close()

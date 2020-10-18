@@ -5,6 +5,8 @@ from nltk.stem import PorterStemmer
 from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 import math
+def dictdecode(s):
+	return ", ".join(s.split(','))
 ps = PorterStemmer()
 tokenizer = RegexpTokenizer("\w+")
 english_stops = set(stopwords.words('english'))
@@ -34,7 +36,7 @@ for opt,arg in opts:
 f = open(indexfile,"rb")
 querylist = []
 def tdfidf(freq,n,df):
-    return (math.log2(1+freq)*math.log2(1 + (n/df)))
+    return ((1+math.log2(freq))*math.log2(1 + (n/df)))
 def parseQ(queryfile):
 	res = []
 	with open(queryfile,"r") as qf:
@@ -88,7 +90,7 @@ def getdocs(query,doclist,root):
             
             for offset in oflist:
                 f.seek(offset,0)
-                posting = json.loads(f.read(offsetlist[offset]))
+                posting = json.loads(dictdecode(f.read(offsetlist[offset]).decode()))
                 for dociter in posting[0]:
                     res[dociter]+=tdfidf(posting[0][dociter],n,len(posting[0]))
             #Apply sqrt here if not work
@@ -119,15 +121,15 @@ def getdocs(query,doclist,root):
             f.seek(offset,0)
 
             
-            posting = json.loads(f.read(offsetlist[offset]))
+            posting = json.loads(dictdecode(f.read(offsetlist[offset]).decode()))
             
             for dociter in posting[0]:
-                res[dociter]+= math.log2(1+qvec[word])*tdfidf(posting[0][dociter],n,len(posting[0]))
+                res[dociter]+= (1+math.log2(qvec[word]))*tdfidf(posting[0][dociter],n,len(posting[0]))
 
-    '''for dociter in doclist:
+    for dociter in doclist:
             if(len(doclist[dociter])==2):
                 res[dociter] = res[dociter]/math.sqrt((qnorm*doclist[dociter][1]))
-   '''
+   
     return res
 
 print("Importing Dictionary: Please wait...")
