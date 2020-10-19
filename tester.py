@@ -17,8 +17,12 @@ import math
 tokenizer = RegexpTokenizer("[\w']+")
 def tdfidf(freq,n,word,vocab):
 	return ((1+math.log2(freq))*math.log2(1 + (n/len(vocab[word][0]))))**2
-def dictencode(s):
-	return ''.join(s.split())
+def dictencode(d):
+	return "".join(json.dumps(d).split())
+
+
+
+
 
 
 
@@ -36,6 +40,7 @@ vocab = {}
 
 
 filelim = 0
+
 print("Generating index: It may take a few minutes...")
 for filename in dlist:
 	filelim+=1
@@ -70,6 +75,7 @@ for filename in dlist:
 					else:
 						word = word[:-1]
 				if(word not in english_stops):
+
 					if(word in vocab):
 						if(dociter in vocab[word][0]):
 							
@@ -82,6 +88,38 @@ for filename in dlist:
 						
 
 						vocab[word] = [{dociter:1}]
+			persons = tag.find_all('person')
+			for person in persons:
+				l = tokenizer.tokenize(person.text)
+				for w in l:
+					word = w.lower()
+					if(word in vocab):
+						if(len(vocab[word])==1):
+							vocab[word].append({dociter:1})
+						else:
+							vocab[word][1][dociter] = 1
+			locations = tag.find_all('location')
+			for loc in locations:
+				l = tokenizer.tokenize(loc.text)
+				for w in l:
+					word = w.lower()
+					if(word in vocab):
+						if(len(vocab[word])==1):
+							vocab[word].append({dociter:2})
+						else:
+							vocab[word][1][dociter] = 2
+			orgs = tag.find_all('organization')
+			for org in orgs:
+				l = tokenizer.tokenize(org.text)
+				for w in l:
+					word = w.lower()
+					if(word in vocab):
+						if(len(vocab[word])==1):
+							vocab[word].append({dociter:3})
+						else:
+							vocab[word][1][dociter] = 3
+
+
 
 			
 			'''for noun in tag.find_all(['person','organization','location']):
@@ -157,6 +195,7 @@ for filename in dlist:
 
 
 
+
 total = len(doclist)
 for word in vocab:
 	for doc in vocab[word][0]:
@@ -195,7 +234,7 @@ for word in vocab:
 
 	dictfile.write(word + " " + str(len(vocab[word][0])) + " ")
 	
-	indexfile.write(dictencode(json.dumps(vocab[word])).encode())
+	indexfile.write(dictencode(vocab[word]).encode())
 	#pickle.dump(vocab[word],indexfile)
 	dictfile.write(str(indexfile.tell() - lasttell) + "\n")
 	lasttell = indexfile.tell()
@@ -204,7 +243,7 @@ for word in vocab:
 	
 
 dictfile.write(str(indexfile.tell()))
-indexfile.write(dictencode(json.dumps(doclist)).encode())
+indexfile.write(dictencode(doclist).encode())
 #pickle.dump(doclist,indexfile)
 dictfile.close()
 indexfile.close()
