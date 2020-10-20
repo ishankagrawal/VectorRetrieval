@@ -1,15 +1,42 @@
+#!/usr/bin/python
 import sys,getopt
 import Trie
 import json
 from nltk.stem import PorterStemmer
 from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
+import nltk
 import math
+def decoder(s):
+    cur = 1
+    dlist = {}
+    for item in s.split():
+        dlist[str(cur)] = [item.split(",")[0],int(item.split(",")[1])*4]
+        cur+=1
+    return dlist
 def dictdecode(s):
-    return(json.loads(", ".join(s.split(','))))
+    
+    d = s.split()
+    cur = 0
+    d1 = {}
+    d2 = {}
+    for dictitem in d[0].split(','):
+        d1[str(cur+int(dictitem.split(':')[0]))] = int(dictitem.split(':')[1])
+        cur = cur+int(dictitem.split(':')[0])
+    cur = 0
+    if(len(d)>1):
+        for dictitem in d[1].split(','):
+            d2[str(cur+int(dictitem.split(':')[0]))] = int(dictitem.split(':')[1])
+            cur = cur+int(dictitem.split(':')[0])
+    return [d1,d2]
+
+
+
+
+
     
 ps = PorterStemmer()
-tokenizer = RegexpTokenizer("\w+")
+tokenizer = RegexpTokenizer("[\w']+")
 english_stops = set(stopwords.words('english'))
 queryfile = ''
 cutoff = 10
@@ -67,7 +94,7 @@ def generateTrie(dictfile):
             else:
                 
                 f.seek(int(s[0]),0)
-        res = dictdecode(f.read())
+        res = decoder(f.read())
 
    
     
@@ -86,9 +113,14 @@ def getdocs(query,doclist,root):
     t = []
     for word in qfull:
         if(len(word)>=2 and word[1] == ":"):
+            if(word[0]=='N'):
+                qfull.append("L:" + word[2:])
+                qfull.append("O:" + word[2:])
+                qfull.append("P:" + word[2:])
+                continue
             if(word[-1] == '*'):
                 oflist = root.searchprefix(word[2:].lower())
-                qnorm+=len(oflist)
+                
                 
                 for offset in oflist:
                     f.seek(offset,0)
@@ -121,7 +153,7 @@ def getdocs(query,doclist,root):
 
 
         else:
-            t.append(word)  
+                t.append(word)  
 
 
 
@@ -132,11 +164,12 @@ def getdocs(query,doclist,root):
     for word in t:
         if(word[-1] == '*'):
             oflist = root.searchprefix(word.lower())
-            qnorm+=len(oflist)
+            
             
             for offset in oflist:
                 f.seek(offset,0)
                 posting = dictdecode(f.read(offsetlist[offset]))
+
                 for dociter in posting[0]:
                     res[dociter]+=tdfidf(posting[0][dociter],n,len(posting[0]))
             #Apply sqrt here if not work
@@ -158,7 +191,8 @@ def getdocs(query,doclist,root):
             else:
                 qvec[word]=1
     for word in qvec:
-        qnorm += qvec[word]**2
+
+        
         trieval = root.search(word)
         if(trieval):
             offset = trieval[1]
@@ -169,35 +203,31 @@ def getdocs(query,doclist,root):
             
             posting = dictdecode(f.read(offsetlist[offset]))
             
+           
             for dociter in posting[0]:
-                res[dociter]+= (1+math.log2(qvec[word]))*tdfidf(posting[0][dociter],n,len(posting[0]))
+                    res[dociter]+= (1+math.log2(qvec[word]))*tdfidf(posting[0][dociter],n,len(posting[0]))
+                
+
 
     for dociter in doclist:
             if(len(doclist[dociter])==2):
-                res[dociter] = res[dociter]/math.sqrt((qnorm*doclist[dociter][1]))
+                res[dociter] = res[dociter]/math.sqrt(doclist[dociter][1])
    
     return res
 
 print("Importing Dictionary: Please wait...")
 
 root,doclist = generateTrie(dictfile)
+print(len(doclist))
 
 print("Generating result file: Please wait...")
 
-
-'''with open(dictfile,"r") as d:
-    for line in d:
-        s = line.split()
-        print(s[0])
-        
-        f.seek(curbyte,0)
-        p = json.loads(f.read(offsetlist[curbyte]))
-        curbyte+=int(s[2])'''
         
 
 
 qlist = parseQ(queryfile)
 qiter = 51
+
 
 with open(resultfile,"w") as rf:
     for q in qlist:
@@ -213,7 +243,7 @@ with open(resultfile,"w") as rf:
 
 
 '''
-docs  = getdocs("L:New L:York stock",doclist,root)
+docs  = getdocs("U.S.",doclist,root)
 
 tptp = sorted(docs,key = lambda item: -docs[item])[:cutoff]
 
@@ -224,6 +254,8 @@ for lplp in tptp:
 
 f.close()
 '''
+
+
 
 
 
