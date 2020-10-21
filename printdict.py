@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import sys
 last = 0
 with open(sys.argv[1],"r") as f:

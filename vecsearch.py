@@ -1,12 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import sys,getopt
 import Trie
-import json
 from nltk.stem import PorterStemmer
 from nltk.tokenize import RegexpTokenizer
-from nltk.corpus import stopwords
+
 import nltk
 import math
+english_stops = {'very', 'with', "should", "'ve","'s", 'in', 'the', 'on', 'to', 'down', 'ain', 'their', 'ours', 'shouldn', 'you', 'needn', 'any', 'out', 'll', 'are', 'be', 'had', "mightn't", 'him', "you've", 'doing', 'what', 'off', 'that', 'whom', 'hers', 'when', 'been', "you're", 'didn', 'she', 'ourselves', 'while', 'her', 'because', 'your', 'yours', 't', 'once', 'being', 'why', 'aren', 'mightn', 'those', 'over', 'now',  'how', 'do', 'above', 'wasn', "couldn't", 'yourselves', 'these', 'is', "didn't", 'won', 'having', 's', 'but', 've', 'm', 'its', 'couldn', 'who', 'don',   'doesn', 'nor', 'this', 'of', 'few', 'or', 'haven', "weren't", 'at', 'am', 'have', 'they', 'myself', "doesn't", 'then', 'itself', 'than', 'most', "you'd", 'did', 'we', 'will', 'were', "mustn't", 'shan', 'he', 'd', 'it', 'such', 're', 'my', "that'll", 'mustn', 'can', 'does', 'if', 'me', 'again', "shan't", 'theirs', 'here', 'under', 'themselves', 'through', 'between', 'where', "don't", "needn't", "wouldn't", 'no', "she's", 'hadn', 'some', "it's", 'other', 'his', "haven't", 'isn', 'not', "aren't", 'which', 'against', "wasn't", 'y', 'as', 'weren', 'same', 'wouldn', 'them', "hasn't", 'himself', 'about', 'and', 'from', 'more', 'during', 'own', 'after', 'a', 'there', 'hasn', 'so', 'o', "shouldn't", 'all', 'yourself', 'an', 'just', 'for', 'herself', 'should', 'i', 'below', 'has', 'was', 'into', 'ma', 'by', 'before', 'both', 'too', 'each', "won't", 'our', 'until', 'further', 'up', 'only'}
 def decoder(s):
     cur = 1
     dlist = {}
@@ -37,7 +37,7 @@ def dictdecode(s):
     
 ps = PorterStemmer()
 tokenizer = RegexpTokenizer("[\w']+")
-english_stops = set(stopwords.words('english'))
+
 queryfile = ''
 cutoff = 10
 resultfile = ''
@@ -67,11 +67,16 @@ mapnouns = {"P:":1 , "L:":2 , "O:":3}
 def tdfidf(freq,n,df):
     return ((1+math.log2(freq))*math.log2(1 + (n/df)))
 def parseQ(queryfile):
-    res = []
+    res = {}
+    lastid= 0
     with open(queryfile,"r") as qf:
         for line in qf:
+            if(line.startswith("<num>")):
+                x = line[5:-1].split()
+                lastid = int(x[-1])
             if(line.startswith("<title>")):
-                res.append(line[14:-1])
+
+                res[lastid] = line[7:-1]
     return res
 def generateTrie(dictfile):
     lim = 0
@@ -112,6 +117,8 @@ def getdocs(query,doclist,root):
     qfull = query.split()
     t = []
     for word in qfull:
+        if(word[-1]==":"):
+            continue
         if(len(word)>=2 and word[1] == ":"):
             if(word[0]=='N'):
                 qfull.append("L:" + word[2:])
@@ -128,7 +135,7 @@ def getdocs(query,doclist,root):
                     if(len(posting)>1):
                         for dociter in posting[1]:
                             if(posting[1][dociter]==mapnouns[word[:2]]):
-                                res[dociter]+=tdfidf(posting[1][dociter],n,len(posting[1]))
+                                res[dociter]+=tdfidf(5,n,len(posting[1]))
             else:
                 qnorm+=1
                 trieval = root.search(word[2:].lower())
@@ -210,7 +217,8 @@ def getdocs(query,doclist,root):
 
 
     for dociter in doclist:
-            if(len(doclist[dociter])==2):
+        if(doclist[dociter][1]>0):
+           
                 res[dociter] = res[dociter]/math.sqrt(doclist[dociter][1])
    
     return res
@@ -226,24 +234,24 @@ print("Generating result file: Please wait...")
 
 
 qlist = parseQ(queryfile)
-qiter = 51
+
 
 
 with open(resultfile,"w") as rf:
     for q in qlist:
         ab = 1
-        docs = getdocs(q,doclist,root)
-        print(qiter)
+        
+        docs = getdocs(qlist[q],doclist,root)
+        
         topk = sorted(docs,key = lambda item: -docs[item])[:cutoff]
         for dociter in topk:
+                rf.write(str(q) + " Q0" + " " + doclist[dociter][0] + " " + str(ab) + " " + str(docs[dociter]) + " STANDARD" + '\n')        
+                ab+=1
+       
 
-            rf.write(str(qiter) + " Q0" + " " + doclist[dociter][0] + " " + str(ab) + " " + str(docs[dociter]) + " STANDARD" + '\n')
-            ab+=1
-        qiter+=1
 
-
-'''
-docs  = getdocs("U.S.",doclist,root)
+''''
+docs  = getdocs("adfdsgf",doclist,root)
 
 tptp = sorted(docs,key = lambda item: -docs[item])[:cutoff]
 
@@ -254,6 +262,7 @@ for lplp in tptp:
 
 f.close()
 '''
+
 
 
 
